@@ -66,6 +66,27 @@ ALTER TABLE ONLY public.message
 
 
 --
+-- Name: channel_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX channel_id_idx ON public.message USING btree (channel_id);
+
+
+--
+-- Name: message_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX message_id_idx ON public.message USING btree (message_id, channel_id);
+
+
+--
+-- Name: updated_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX updated_idx ON public.message USING btree (updated_utc);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
