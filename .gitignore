@@ -1,3 +1,5 @@
+.vscode
 *.yaml
 config.yaml
 session.session
+__pycache__
