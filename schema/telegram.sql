@@ -35,6 +35,35 @@ CREATE TABLE public.channel (
 ALTER TABLE public.channel OWNER TO postgres;
 
 --
+-- Name: TABLE channel; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.channel IS 'Information for each Telegram channel';
+
+
+--
+-- Name: channel_status; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.channel_status (
+    channel_id bigint NOT NULL,
+    min_message_id integer,
+    max_message_id integer,
+    complete_history boolean,
+    updated_utc integer
+);
+
+
+ALTER TABLE public.channel_status OWNER TO postgres;
+
+--
+-- Name: TABLE channel_status; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.channel_status IS 'Keep track of ingest location for channel';
+
+
+--
 -- Name: message; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -43,11 +72,19 @@ CREATE TABLE public.message (
     message_id integer,
     channel_id bigint,
     retrieved_utc integer,
-    updated_utc integer
+    updated_utc integer,
+    data jsonb
 );
 
 
 ALTER TABLE public.message OWNER TO postgres;
+
+--
+-- Name: TABLE message; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.message IS 'raw data for each ingested message';
+
 
 --
 -- Name: channel channel_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
@@ -55,6 +92,14 @@ ALTER TABLE public.message OWNER TO postgres;
 
 ALTER TABLE ONLY public.channel
     ADD CONSTRAINT channel_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: channel_status channel_status_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.channel_status
+    ADD CONSTRAINT channel_status_pkey PRIMARY KEY (channel_id);
 
 
 --
