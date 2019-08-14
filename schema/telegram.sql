@@ -26,20 +26,14 @@ SET default_with_oids = false;
 
 CREATE TABLE public.channel (
     id bigint NOT NULL,
+    name text,
     retrieved_utc integer,
-    is_active boolean,
+    is_active boolean DEFAULT true,
     data jsonb
 );
 
 
 ALTER TABLE public.channel OWNER TO postgres;
-
---
--- Name: TABLE channel; Type: COMMENT; Schema: public; Owner: postgres
---
-
-COMMENT ON TABLE public.channel IS 'Information for each Telegram channel';
-
 
 --
 -- Name: channel_status; Type: TABLE; Schema: public; Owner: postgres
