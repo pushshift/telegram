@@ -1,7 +1,7 @@
 from flask import Flask
 import os
 
-from api.suggest_channel import suggest_channel_endpoint
+from api.add_channel import suggest_channel_endpoint
 
 app = Flask(__name__)
 
