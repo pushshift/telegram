@@ -4,11 +4,10 @@ import time
 import sys
 from telethon import functions, types
 import logging
-import urllib.parse
+from urllib.parse import urlparse
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
-from urlparse import urlparse
-
+import urllib
 
 TELEGAGO_BASE_URL = 'https://cse.google.com/cse?q=+&cx=006368593537057042503:efxu7xprihg#gsc.tab=0&gsc.ref=more%3Apublic&gsc.q='
 LYZEM_BASE_URL = 'https://lyzem.com/search?f=channels&l=%3Aen&per-page=100&q='
@@ -16,7 +15,6 @@ LYZEM_BASE_URL = 'https://lyzem.com/search?f=channels&l=%3Aen&per-page=100&q='
 
 # extracts the html from a URL using the requests_html library (supports JS)
 def extract_html(url, javascript_enabled=False):
-    print("Requesting HTML for " + url)
     session = HTMLSession()
     response = session.get(url)
     if javascript_enabled:
@@ -29,14 +27,11 @@ def extract_html(url, javascript_enabled=False):
 
 # method to parse the HTML from the Lyzem page
 def parse_lyzem_page(html):
-    print(html)
     soup = BeautifulSoup(html, "lxml")
     links = soup.find_all('li', attrs={'class', 'result'})
     channels = []
     for link in links:
         try:
-            print(link['data-url'])
-            print(type(link['data-url']))
             element_classes = link['class']
             # if they have this element this means the result is an advertisement
             # we dont want these
@@ -57,7 +52,6 @@ def search_channels_lyzem(query, limit=100):
 
     # extract channels from initial page
     source_html = extract_html(initial_request_url, javascript_enabled=False)
-    print(source_html)
     page_channels = parse_lyzem_page(source_html)
     all_channels = page_channels
     
@@ -69,7 +63,11 @@ def search_channels_lyzem(query, limit=100):
     # find the number of pages from the html
     soup = BeautifulSoup(source_html, "lxml")
     cursor_div = soup.find_all('nav', {'class': 'pages'})
-    num_pages = len(cursor_div[0].find_all('li'))
+    try:
+        num_pages = len(cursor_div[0].find_all('li'))
+    except IndexError:
+        num_pages=0
+        pass
     
     # then iterate over all pages to extract all channels
     i=1
@@ -96,9 +94,6 @@ def parse_telegago_page(html):
 
     for link in links:
         try:
-            print(link['href'])
-            print(type(link['href']))
-
             path_url = urlparse(link['href']).path
             if path_url.startswith('/s/'):
                 if path_url.count('/')==2:
@@ -131,7 +126,12 @@ def search_channels_telegago(query, limit=100):
     # find the number of pages from the html
     soup = BeautifulSoup(source_html, "lxml")
     cursor_div = soup.find_all('div', {'class': 'gsc-cursor'})
-    num_pages = len(cursor_div[0].find_all('div'))
+    try:
+        num_pages = len(cursor_div[0].find_all('div'))
+    except IndexError:
+        num_pages=0
+        pass
+
     
     # then iterate over all pages to extract all channels
     i=1
