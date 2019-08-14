@@ -158,7 +158,7 @@ def search_channels_telegago(query, limit=100):
 def get_channel_info(client, channel):
     try:
         return client(functions.channels.GetFullChannelRequest(channel=channel)).to_json()
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         return {'error': str(e)}
 
 # method to get participants from channel (we might not have priviledges to get this data)
