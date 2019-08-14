@@ -5,6 +5,7 @@ import time
 import psycopg2
 import ingest
 import logging
+import requests
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -17,6 +18,32 @@ with open("config.yaml",'r') as stream:
 conn = psycopg2.connect("dbname='telegram' user='postgres' host='localhost' password='{}'".format(db_password))
 telethon_api = TelegramClient('session', api_id, api_hash)
 telethon_api.start()
+
+
+def insert_messages_into_es(rows: list, action='create'):
+    '''This method bulk inserts Telegram messages into Elasticsearch'''
+    records = []
+
+    for record in rows:
+
+        index = 'telegram'
+        id = str(record['id'])
+        bulk = defaultdict(dict)
+        bulk[action]['_index'] = index
+        bulk[action]['_id'] = id
+        records.extend(list(map(lambda x: json.dumps(x,sort_keys=True,ensure_ascii=False), [bulk, record])))
+
+    headers = {'Accept': 'application/json', 'Content-type': 'application/json; charset=utf-8'}
+    url = "http://localhost:9200/_bulk"
+    records = '\n'.join(records) + "\n"
+    records = records.encode('utf-8')
+    response = requests.post(url, data=records, headers=headers)
+    content = response.json()
+    if content['errors']:
+        sys.exit(response.content) ###### Add proper Error Handling later (Raise custom error, etc.)
+    if response.status_code != 200:
+        sys.exit(response.text)
+
 
 def get_channel(db_handle, channel_id=None, channel_name=None):
     '''Get current channel status by channel id'''
