@@ -1,4 +1,5 @@
-from telethon import TelegramClient, events, sync
+from telethon import TelegramClient, events, sync, errors
+import sys
 import ujson as json
 import yaml
 import time
@@ -6,7 +7,10 @@ import psycopg2
 import ingest
 import logging
 import requests
+from collections import defaultdict
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("telethon").setLevel(logging.WARNING)
 
 
 with open("config.yaml",'r') as stream:
@@ -20,7 +24,7 @@ telethon_api = TelegramClient('session', api_id, api_hash)
 telethon_api.start()
 
 
-def insert_messages_into_es(rows: list, action='create'):
+def insert_messages_into_es(rows: list, action='index'):
     '''This method bulk inserts Telegram messages into Elasticsearch'''
     records = []
 
@@ -91,16 +95,20 @@ def bulk_insert(db_handle, rows: list):
 
 def ingest_all_messages(channel_name: str):
 
-    BATCH_SIZE = 100
+    BATCH_SIZE = 250
     current_message_id = None
     max_message_id = None
     min_message_id = None
     stop_flag = False
     channel_id = None
 
+    if channel_name.lower() == 'bant4chan':
+        current_message_id = 1149000
+
     while True:
 
-        logging.debug("Fetching ids (in descending order) from {} starting at id {}".format(channel_name,max_message_id))
+        es_records = []
+        logging.debug("Fetching {} ids (in descending order) from {} starting at id {}".format(BATCH_SIZE, channel_name, current_message_id))
         messages = ingest.fetch_messages(telethon_api, channel_name, BATCH_SIZE, max_id=current_message_id)
         if len(messages) == 0:
             break
@@ -120,13 +128,28 @@ def ingest_all_messages(channel_name: str):
             id = (channel_id << 32) + message_id
             data = m.to_json()
             updated_utc = retrieved_utc
+            es_record = {}
+            es_record['id'] = id
+            es_record['channel_id'] = channel_id
+            es_record['message_id'] = message_id
+            es_record['message'] = m.message
+            es_record['date'] = int(m.date.timestamp())
+            es_record['via_bot_id'] = m.via_bot_id
+            es_record['channel_name'] = channel_name
+            es_record['grouped_id'] = m.grouped_id
+            es_record['post_author'] = m.post_author
+            es_record['post'] = m.post
+            es_record['silent'] = m.silent
+            es_record['retrieved_utc'] = retrieved_utc
+            es_record['updated_utc'] = retrieved_utc
+            es_records.append(es_record)
             rows.append((id, message_id, channel_id, retrieved_utc, updated_utc, data))
 
             # Add channel to channel table
             #if not channel_updated:
             #    update_channel(conn, channel_id, channel, retrieved_utc)
             #    channel_updated = True
-        
+        insert_messages_into_es(es_records)
         bulk_insert(conn, rows)
         rows.clear()
         if stop_flag:
@@ -136,4 +159,11 @@ def ingest_all_messages(channel_name: str):
     update_channel(conn, channel_id, channel_name, retrieved_utc, min_message_id, max_message_id, is_active=True, is_complete=True)
 
 
-ingest_all_messages("pushshift")
+channels = open("toxic.csv","r").read().split("\n")
+channels = [channel for channel in channels if channel != '']
+
+for channel in channels:
+    try:
+        ingest_all_messages(channel)
+    except telethon.errors.rpcerrorlist.UsernameNotOccupiedError:
+        continue
