@@ -28,12 +28,28 @@ CREATE TABLE public.channel (
     id bigint NOT NULL,
     name text,
     retrieved_utc integer,
+    updated_utc integer,
+    min_message_id integer,
+    max_message_id integer,
     is_active boolean DEFAULT true,
-    data jsonb
+    is_complete boolean DEFAULT false
 );
 
 
 ALTER TABLE public.channel OWNER TO postgres;
+
+--
+-- Name: channel_data; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.channel_data (
+    id bigint NOT NULL,
+    updated_utc integer,
+    data jsonb
+);
+
+
+ALTER TABLE public.channel_data OWNER TO postgres;
 
 --
 -- Name: channel_status; Type: TABLE; Schema: public; Owner: postgres
@@ -81,6 +97,14 @@ COMMENT ON TABLE public.message IS 'raw data for each ingested message';
 
 
 --
+-- Name: channel_data channel_data_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.channel_data
+    ADD CONSTRAINT channel_data_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: channel channel_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -109,6 +133,13 @@ ALTER TABLE ONLY public.message
 --
 
 CREATE INDEX channel_id_idx ON public.message USING btree (channel_id);
+
+
+--
+-- Name: channel_name_lower_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX channel_name_lower_idx ON public.channel USING btree (lower(name));
 
 
 --
