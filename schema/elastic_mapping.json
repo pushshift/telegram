@@ -1,0 +1,135 @@
+{
+  "settings": {
+    "index": {
+      "codec": "default",
+      "refresh_interval": "2s",
+      "shard.check_on_startup": "checksum",
+      "mapping.coerce": "false",
+      "max_result_window": 10000,
+      "number_of_shards": 4,
+      "number_of_replicas": 0,
+      "routing_partition_size": 1,
+      "sort.field": "created_utc",
+      "sort.order": "desc",
+      "queries": {
+        "cache": {
+          "enabled": "true"
+        }
+      }
+    },
+    "analysis": {
+      "analyzer": {
+        "lowercase": {
+          "type": "custom",
+          "filter": [
+            "lowercase",
+            "word_delimiter"
+          ],
+          "tokenizer": "icu_tokenizer"
+        },
+        "default": {
+          "type": "custom",
+          "tokenizer": "icu_tokenizer",
+          "filter": [
+            "wd",
+            "icu_folding"
+          ]
+        }
+      },
+      "filter": {
+        "wd": {
+          "type": "word_delimiter",
+          "catenate_all": true,
+          "preserve_original": false
+        },
+        "asciifolding": {
+          "type": "asciifolding",
+          "preserve_original": true
+        }
+      },
+      "normalizer": {
+        "default": {
+          "type": "custom",
+          "char_filter": [],
+          "filter": [
+            "lowercase",
+            "icu_folding"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "_routing": {
+      "required": false
+    },
+    "_source": {
+      "enabled": true,
+      "excludes": []
+    },
+    "dynamic": false,
+    "properties": {
+      "id": {
+        "type": "long"
+      },
+      "channel_id": {
+        "type": "integer"
+      },
+      "message_id": {
+        "type": "integer"
+      },
+      "via_bot_id": {
+        "type": "integer"
+      },
+      "from_id": {
+        "type": "integer"
+      },
+      "grouped_id": {
+        "type": "integer"
+      },
+      "channel_name": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "post_author": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "created_utc": {
+        "type": "date",
+        "format": "epoch_second"
+      },
+      "updated_utc": {
+        "type": "date",
+        "format": "epoch_second"
+      },
+      "retrieved_utc": {
+        "type": "date",
+        "format": "epoch_second"
+      },
+      "message": {
+        "type": "text"
+      },
+      "post": {
+        "type": "boolean"
+      },
+      "silent": {
+        "type": "boolean"
+      },
+      "out": {
+        "type": "boolean"
+      },
+      "views": {
+        "type": "integer"
+      }
+    }
+  }
+}
