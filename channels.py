@@ -4,7 +4,6 @@ import time
 import sys
 from telethon import functions, types
 import logging
-from urllib.parse import urlparse
 from requests_html import HTMLSession
 from bs4 import BeautifulSoup
 import urllib
@@ -94,7 +93,7 @@ def parse_telegago_page(html):
 
     for link in links:
         try:
-            path_url = urlparse(link['href']).path
+            path_url = urllib.parse.urlparse(link['href']).path
             if path_url.startswith('/s/'):
                 if path_url.count('/')==2:
                     channel_name = path_url.split('/')[-1]
