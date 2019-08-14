@@ -1,4 +1,6 @@
 .vscode
+.idea/
+*.iml
 *.yaml
 config.yaml
 session.session
