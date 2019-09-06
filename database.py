@@ -85,7 +85,8 @@ class Database:
                 "VALUES (%s,%s,%s,%s,%s,%s) "
                 "ON CONFLICT (id) DO "
                 "   UPDATE SET "
-                "       data=EXCLUDED.data",
+                "       data=EXCLUDED.data,"
+                "       updated_utc=excluded.updated_utc",
                 (
                     message.record_id, message.message_id, message.channel_id, message.retrieved_utc,
                     message.updated_utc, message.data
