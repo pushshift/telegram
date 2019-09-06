@@ -1,14 +1,14 @@
 from flask import Flask
 import os
 
-from api.add_channel import suggest_channel_endpoint
+from api.add_channel import add_channel_endpoint
 
 app = Flask(__name__)
 
 TELEGRAM_PORT = os.environ.get("TELEGRAM_PORT", 8000)
 TELEGRAM_HOST = os.environ.get("TELEGRAM_ADDR", "127.0.0.1")
 
-app.register_blueprint(suggest_channel_endpoint)
+app.register_blueprint(add_channel_endpoint)
 
 
 @app.route("/")

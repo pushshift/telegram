@@ -1,7 +1,7 @@
 import requests
 from flask_testing import LiveServerTestCase
 
-from api.app import app
+from app import app
 
 
 class SuggestChannelTest(LiveServerTestCase):

@@ -3,27 +3,16 @@ import sys
 import time
 from collections import defaultdict
 
-import psycopg2
 import requests
 import telethon
 import ujson as json
-import yaml
 from telethon import TelegramClient
 
 import ingest
+from common import config, db
+from model import Message, Channel
 
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-logging.getLogger("telethon").setLevel(logging.WARNING)
-
-with open("config.yaml", 'r') as stream:
-    config = yaml.safe_load(stream)
-    api_id = config['api_id']
-    api_hash = config['api_hash']
-    db_password = config['db_password']
-
-conn = psycopg2.connect("dbname='telegram' user='postgres' host='localhost' password='{}'".format(db_password))
-telethon_api = TelegramClient('session', api_id, api_hash)
+telethon_api = TelegramClient('session', config["api_id"], config["api_hash"])
 telethon_api.start()
 
 
@@ -49,52 +38,6 @@ def insert_messages_into_es(rows: list, action='index'):
         sys.exit(response.content)  # TODO: Add proper Error Handling later (Raise custom error, etc.)
     if response.status_code != 200:
         sys.exit(response.text)
-
-
-def get_channel(db_handle, channel_id=None, channel_name=None):
-    """Get current channel status by channel id"""
-
-    cur = db_handle.cursor()
-    if channel_name is None:
-        cur.execute("SELECT * FROM channel_status WHERE channel_id = %s", (channel_id,))
-    else:
-        cur.execute("SELECT * FROM channel WHERE LOWER(name) = %s", (channel_name.lower(),))
-    data = cur.fetchone()
-    return data
-
-
-def update_channel(db_handle, channel_id, channel_name, retrieved_utc, min_message_id, max_message_id, is_active=True,
-                   is_complete=False):
-    """Upsert function for channel data. This will need to be broken into separate functions later."""
-
-    cur = db_handle.cursor()
-    updated_utc = int(time.time())
-    cur.execute('''INSERT INTO channel (id, name, retrieved_utc, updated_utc, min_message_id, max_message_id, is_complete, is_active) 
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET max_message_id=EXCLUDED.max_message_id, min_message_id=EXCLUDED.min_message_id, 
-                updated_utc=EXCLUDED.updated_utc, is_complete=EXCLUDED.is_complete''', (channel_id,
-                                                                                        channel_name,
-                                                                                        retrieved_utc,
-                                                                                        updated_utc,
-                                                                                        min_message_id,
-                                                                                        max_message_id,
-                                                                                        is_complete,
-                                                                                        is_active))
-    db_handle.commit()
-    cur.close()
-
-
-def bulk_insert(db_handle, rows: list):
-    """Method to bulk insert messages into Postgresql"""
-
-    cur = db_handle.cursor()
-
-    if rows:
-        sql = "INSERT INTO message (id,message_id, channel_id, retrieved_utc, updated_utc, data) VALUES {} ON CONFLICT (id) DO UPDATE SET data=EXCLUDED.data"
-        args_str = b','.join(cur.mogrify("(%s,%s,%s,%s,%s,%s)", x) for x in rows)
-        sql = sql.format(args_str.decode("utf-8"))
-        cur.execute(sql)
-        db_handle.commit()
-        cur.close()
 
 
 def ingest_all_messages(channel_name: str):
@@ -147,26 +90,38 @@ def ingest_all_messages(channel_name: str):
             })
             rows.append((record_id, message_id, channel_id, retrieved_utc, updated_utc, data))
 
-            # Add channel to channel table
-            # if not channel_updated:
-            #    update_channel(conn, channel_id, channel, retrieved_utc)
-            #    channel_updated = True
+            db.insert_message(Message(
+                record_id=record_id,
+                message_id=message_id,
+                channel_id=channel_id,
+                retrieved_utc=retrieved_utc,
+                updated_utc=updated_utc,
+                data=data,
+            ))
         insert_messages_into_es(es_records)
-        bulk_insert(conn, rows)
         rows.clear()
         if stop_flag:
             break
         time.sleep(1)
 
-    update_channel(conn, channel_id, channel_name, retrieved_utc, min_message_id, max_message_id, is_active=True,
-                   is_complete=True)
+    db.upsert_channel(Channel(
+        channel_id=channel_id,
+        channel_name=channel_name,
+        retrieved_utc=retrieved_utc,
+        min_message_id=min_message_id,
+        max_message_id=max_message_id,
+        is_active=True,
+        is_complete=True,
+    ))
 
 
-channels = open("toxic.csv", "r").read().split("\n")
-channels = [channel for channel in channels if channel != '']
+# TODO close file
+if __name__ == "__main__":
+    channels = open("toxic.csv", "r").read().split("\n")
+    channels = [channel for channel in channels if channel != '']
 
-for channel in channels:
-    try:
-        ingest_all_messages(channel)
-    except telethon.errors.rpcerrorlist.UsernameNotOccupiedError:
-        continue
+    for channel in channels:
+        try:
+            ingest_all_messages(channel)
+        except telethon.errors.rpcerrorlist.UsernameNotOccupiedError:
+            continue
