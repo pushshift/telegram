@@ -1,43 +1,16 @@
 import logging
-import sys
 import time
-from collections import defaultdict
 
-import requests
 import telethon
-import ujson as json
 from telethon import TelegramClient
 
 import ingest
-from common import config, db
+from common import config, db, es
 from model import Message, Channel
 
+# TODO: Wrap in its own file
 telethon_api = TelegramClient('session', config["api_id"], config["api_hash"])
 telethon_api.start()
-
-
-def insert_messages_into_es(rows: list, action='index'):
-    """This method bulk inserts Telegram messages into Elasticsearch"""
-    records = []
-
-    for record in rows:
-        index = 'telegram'
-        record_id = str(record['id'])
-        bulk = defaultdict(dict)
-        bulk[action]['_index'] = index
-        bulk[action]['_id'] = record_id
-        records.extend(list(map(lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False), [bulk, record])))
-
-    headers = {'Accept': 'application/json', 'Content-type': 'application/json; charset=utf-8'}
-    url = "http://localhost:9200/_bulk"
-    records = '\n'.join(records) + "\n"
-    records = records.encode('utf-8')
-    response = requests.post(url, data=records, headers=headers)
-    content = response.json()
-    if content['errors']:
-        sys.exit(response.content)  # TODO: Add proper Error Handling later (Raise custom error, etc.)
-    if response.status_code != 200:
-        sys.exit(response.text)
 
 
 def ingest_all_messages(channel_name: str):
@@ -47,9 +20,6 @@ def ingest_all_messages(channel_name: str):
     min_message_id = None
     stop_flag = False
     channel_id = None
-
-    if channel_name.lower() == 'bant4chan':
-        current_message_id = 1149000
 
     while True:
         es_records = []
@@ -98,11 +68,11 @@ def ingest_all_messages(channel_name: str):
                 updated_utc=updated_utc,
                 data=data,
             ))
-        insert_messages_into_es(es_records)
+        es.bulk_insert(es_records)
         rows.clear()
         if stop_flag:
             break
-        time.sleep(1)
+        time.sleep(1)  # TODO: rate limit decorator
 
     db.upsert_channel(Channel(
         channel_id=channel_id,
