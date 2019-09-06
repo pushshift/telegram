@@ -1,10 +1,12 @@
+import json
+import time
 import traceback
 from time import sleep
 
 import psycopg2
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
-from common import SQL_DEBUG, logger
+from common import logger, config
 from model import Message
 
 
@@ -22,7 +24,7 @@ class PgConn:
             args = []
         while True:
             try:
-                if SQL_DEBUG:
+                if config["sql_debug"]:
                     logger.debug(query_string)
                     logger.debug("With args " + str(args))
 
@@ -37,14 +39,14 @@ class PgConn:
     def query(self, query_string, args=None):
         while True:
             try:
-                if SQL_DEBUG:
+                if config["sql_debug"]:
                     logger.debug(query_string)
                     logger.debug("With args " + str(args))
 
                 self.cur.execute(query_string, args)
                 res = self.cur.fetchall()
 
-                if SQL_DEBUG:
+                if config["sql_debug"]:
                     logger.debug("result: " + str(res))
 
                 return res
@@ -73,19 +75,19 @@ class Database:
         self.conn = psycopg2.connect(self.conn_str)
 
     def _get_conn(self):
-        return PgConn(self.conn, self.db_file)
+        return PgConn(self.conn, self.conn_str)
 
     def insert_message(self, message: Message):
         with self._get_conn() as conn:
             conn.exec(
                 "INSERT INTO message "
                 "   (id, message_id, channel_id, retrieved_utc, updated_utc, data) "
-                "VALUES ($1,$1,$1,$1,$1,$1) "
+                "VALUES (%s,%s,%s,%s,%s,%s) "
                 "ON CONFLICT (id) DO "
                 "   UPDATE SET "
                 "       data=EXCLUDED.data",
                 (
-                    message.id, message.message_id, message.retrieved_utc,
+                    message.record_id, message.message_id, message.channel_id, message.retrieved_utc,
                     message.updated_utc, message.data
                 )
             )
@@ -109,10 +111,26 @@ class Database:
                 )
             )
 
+    def upsert_channel_data(self, channel_id, data):
+        updated_utc = int(time.time())
+        if isinstance(data, dict):
+            data = json.dumps(data)
+        with self._get_conn() as conn:
+            conn.exec(
+                "INSERT INTO channel_data "
+                "   (id,updated_utc,data) "
+                "VALUES (%s,%s,%s) "
+                "ON CONFLICT (id) DO "
+                "   UPDATE SET "
+                "       data=EXCLUDED.data,"
+                "       updated_utc=EXCLUDED.updated_utc",
+                (channel_id, updated_utc, data)
+            )
+
     def get_channel_by_id(self, channel_id):
         with self._get_conn() as conn:
             res = conn.query(
-                "SELECT * FROM channel_status WHERE channel_id = $1",
+                "SELECT * FROM channel WHERE id = %s",
                 (channel_id, )
             )
         return None if not res else res[0]
@@ -120,7 +138,7 @@ class Database:
     def get_channel_by_name(self, channel_name):
         with self._get_conn() as conn:
             res = conn.query(
-                "SELECT * FROM channel WHERE LOWER(name) = $1",
+                "SELECT * FROM channel WHERE LOWER(name) = %s",
                 (channel_name.lower(), )
             )
         return None if not res else res[0]
