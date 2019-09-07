@@ -1,4 +1,4 @@
-from telethon import functions, types
+from telethon import types
 
 
 def message_media_from_json(message_json):
@@ -23,7 +23,7 @@ def message_media_document_from_json(json_object):
     document_json = media_json['document']
     attributes_json = document_json['attributes']
     thumbs_json = document_json['thumbs']
-    
+
     # lets reconstruct attibutes first
     document_attributes = []
     attr_types_dict = {
@@ -34,14 +34,14 @@ def message_media_document_from_json(json_object):
         'DocumentAttributeAudio': types.DocumentAttributeAudio,
         'DocumentAttributeHasStickers': types.DocumentAttributeHasStickers,
         'DocumentAttributeSticker': types.DocumentAttributeSticker
-        }
+    }
 
     for attr in attributes_json:
         attr_type = attr['_']
         del attr['_']
         document_attributes.append(attr_types_dict[attr_type](**attr))
 
-    # reconstuct photo_sizes (thumbs)
+    # reconstruct photo_sizes (thumbs)
     thumbs_object = photo_sizes_from_json(thumbs_json)
 
     del document_json['_']
@@ -67,7 +67,7 @@ def photo_sizes_from_json(list_of_sizes):
             location_object = types.FileLocationToBeDeprecated(**location_json)
             size['location'] = location_object
             if size_object_type == 'PhotoSize':
-                photo_sizes.append(types.PhotoSize(**size)) 
+                photo_sizes.append(types.PhotoSize(**size))
             else:
                 photo_sizes.append(types.PhotoCachedSize(**size))
     return photo_sizes
@@ -75,20 +75,20 @@ def photo_sizes_from_json(list_of_sizes):
 
 def message_media_photo_from_json(json_object):
     # a photo consists of 
-    #id	long	
-    #access_hash	long	
-    #file_reference	bytes	
-    #date	date	
-    #sizes	PhotoSize	A list must be supplied.
-    #dc_id	int	
-    #has_stickers	flag	This argument defaults to None and can be omitted.
+    # id	long
+    # access_hash	long
+    # file_reference	bytes
+    # date	date
+    # sizes	PhotoSize	A list must be supplied.
+    # dc_id	int
+    # has_stickers	flag	This argument defaults to None and can be omitted.
 
     media_json = json_object['media']
-    photo_json =  media_json['photo']
+    photo_json = media_json['photo']
 
     # fist lets reconstruct the sizes (PhotoSize onject)
     photo_sizes = photo_sizes_from_json(photo_json['sizes'])
-    
+
     del photo_json['_']
     del photo_json['sizes']
     photo_json['sizes'] = photo_sizes

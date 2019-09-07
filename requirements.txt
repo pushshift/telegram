@@ -1,0 +1,9 @@
+PyYAML
+telethon>=1.9.0
+requests_html
+bs4
+ujson
+requests
+flask
+psycopg2
+lxml
