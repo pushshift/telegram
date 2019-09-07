@@ -1,5 +1,6 @@
-from flask import Flask
 import os
+
+from flask import Flask
 
 from api.add_channel import add_channel_endpoint
 

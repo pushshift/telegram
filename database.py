@@ -7,10 +7,11 @@ import psycopg2
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 from common import logger, config
-from model import Message
 
 
 class PgConn:
+    """Wrapper for PostgreSQL connection"""
+
     def __init__(self, conn, conn_str):
         self.conn = conn
         self.conn_str = conn_str
@@ -20,8 +21,6 @@ class PgConn:
         return self
 
     def exec(self, query_string, args=None):
-        if args is None:
-            args = []
         while True:
             try:
                 if config["sql_debug"]:
@@ -77,20 +76,19 @@ class Database:
     def _get_conn(self):
         return PgConn(self.conn, self.conn_str)
 
-    def insert_message(self, message: Message):
+    def insert_messages(self, messages: list):
+        if not messages:
+            return
+
         with self._get_conn() as conn:
             conn.exec(
                 "INSERT INTO message "
                 "   (id, message_id, channel_id, retrieved_utc, updated_utc, data) "
-                "VALUES (%s,%s,%s,%s,%s,%s) "
-                "ON CONFLICT (id) DO "
+                "VALUES %s ON CONFLICT (id) DO "
                 "   UPDATE SET "
                 "       data=EXCLUDED.data,"
-                "       updated_utc=excluded.updated_utc",
-                (
-                    message.record_id, message.message_id, message.channel_id, message.retrieved_utc,
-                    message.updated_utc, message.data
-                )
+                "       updated_utc=excluded.updated_utc" %
+                b','.join(conn.cur.mogrify("(%s,%s,%s,%s,%s,%s)", m) for m in messages).decode("utf8")
             )
 
     def upsert_channel(self, channel):
@@ -132,15 +130,6 @@ class Database:
         with self._get_conn() as conn:
             res = conn.query(
                 "SELECT * FROM channel WHERE id = %s",
-                (channel_id, )
+                (channel_id,)
             )
         return None if not res else res[0]
-
-    def get_channel_by_name(self, channel_name):
-        with self._get_conn() as conn:
-            res = conn.query(
-                "SELECT * FROM channel WHERE LOWER(name) = %s",
-                (channel_name.lower(), )
-            )
-        return None if not res else res[0]
-

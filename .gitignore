@@ -3,6 +3,6 @@
 *.iml
 *.yaml
 config.yaml
-session.session
+session.session*
 __pycache__
 toxic.csv

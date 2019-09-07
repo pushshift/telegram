@@ -30,6 +30,7 @@ def ingest_channel(channel_name: str, channel_id: int, stop_point: int = None):
 
     while True:
         es_records = []
+        pg_records = []
         logger.debug(
             "Fetching %d ids (in descending order) from %s starting at id %s" %
             (BATCH_SIZE, channel_name, current_message_id)
@@ -40,10 +41,6 @@ def ingest_channel(channel_name: str, channel_id: int, stop_point: int = None):
             size=BATCH_SIZE,
             max_id=current_message_id,
         )
-
-        if len(messages) == 0:
-            # TODO: ???
-            break
 
         retrieved_utc = int(time.time())
 
@@ -70,10 +67,9 @@ def ingest_channel(channel_name: str, channel_id: int, stop_point: int = None):
             record_id = (message_channel_id << 32) + message_id
             data = m.to_json()
             updated_utc = retrieved_utc
-            es_record = translate_message_for_es(m, channel_name, retrieved_utc)
-            es_records.append(es_record)
+            es_records.append(translate_message_for_es(m, channel_name, retrieved_utc))
 
-            db.insert_message(Message(
+            pg_records.append(Message(
                 record_id=record_id,
                 message_id=message_id,
                 channel_id=channel_id,
@@ -81,6 +77,7 @@ def ingest_channel(channel_name: str, channel_id: int, stop_point: int = None):
                 updated_utc=updated_utc,
                 data=data,
             ))
+        db.insert_messages(pg_records)
         es.bulk_insert(es_records)
         if stop_flag:
             break
@@ -89,6 +86,8 @@ def ingest_channel(channel_name: str, channel_id: int, stop_point: int = None):
     logger.debug("A total of %d messages were ingested for channel %s" %
                  (total_messages, channel_name))
 
+    # TODO: Should we update this at every iteration?
+    #  This way if this crashes halfway through it can resume
     if total_messages > 0:
         db.upsert_channel(Channel(
             channel_id=channel_id,
