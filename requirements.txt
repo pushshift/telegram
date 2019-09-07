@@ -1,5 +1,5 @@
 PyYAML
-telethon>=1.6.1
+telethon>=1.9.0
 requests_html
 bs4
 ujson
