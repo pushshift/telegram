@@ -9,3 +9,14 @@ The Pushshift Telegram Ingest API ingests data from numerous Telegram channels /
 The goal of this project is to consume data from publicly available channels and groups and give researchers the ability to quickly search and filter data.
 
 
+## config.yaml
+
+Example config:
+```yaml
+api_id: 000000
+api_hash: 000000000000000000000000000000
+db_password: xxxxxxx
+es_host: http://localhost:9200
+es_index: telegram
+sql_debug: false
+```
